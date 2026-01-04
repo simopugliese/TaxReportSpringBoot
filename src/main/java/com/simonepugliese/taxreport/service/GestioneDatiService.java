@@ -6,6 +6,9 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import java.net.MalformedURLException;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -68,5 +71,57 @@ public class GestioneDatiService {
         spesaRepository.save(spesa);
 
         return doc;
+    }
+
+    public Resource recuperaFileFisico(UUID documentoId) {
+        Documento doc = documentoRepository.findById(documentoId)
+                .orElseThrow(() -> new RuntimeException("Documento non trovato"));
+
+        try {
+            Path filePath = Path.of(doc.getPercorsoFile());
+            Resource resource = new UrlResource(filePath.toUri());
+            if (resource.exists() || resource.isReadable()) {
+                return resource;
+            } else {
+                throw new RuntimeException("Impossibile leggere il file: " + doc.getNomeFileOriginale());
+            }
+        } catch (MalformedURLException e) {
+            throw new RuntimeException("Errore nel percorso file", e);
+        }
+    }
+
+    @Transactional
+    public void eliminaSpesa(UUID spesaId) {
+        Spesa spesa = spesaRepository.findById(spesaId)
+                .orElseThrow(() -> new RuntimeException("Spesa non trovata"));
+
+        // 1. Elimina i file fisici
+        for (Documento doc : spesa.getDocumenti()) {
+            try {
+                Files.deleteIfExists(Path.of(doc.getPercorsoFile()));
+            } catch (IOException e) {
+                // Logghiamo ma continuiamo, non blocchiamo la cancellazione logica
+                System.err.println("Warning: Impossibile eliminare file fisico " + doc.getPercorsoFile());
+            }
+        }
+
+        // 2. Elimina dal DB (Cascade rimuoverà i record Documento)
+        spesaRepository.delete(spesa);
+    }
+
+    @Transactional
+    public Spesa aggiornaSpesa(UUID id, Spesa nuoviDati) {
+        return spesaRepository.findById(id)
+                .map(spesa -> {
+                    spesa.setDescrizione(nuoviDati.getDescrizione());
+                    spesa.setImporto(nuoviDati.getImporto());
+                    spesa.setDataSpesa(nuoviDati.getDataSpesa());
+                    spesa.setCategoria(nuoviDati.getCategoria());
+                    // Ricalcola validazione
+                    String stato = validazioneService.calcolaStatoSpesa(spesa);
+                    spesa.setStatoValidazione(stato);
+                    return spesaRepository.save(spesa);
+                })
+                .orElseThrow(() -> new RuntimeException("Spesa non trovata"));
     }
 }

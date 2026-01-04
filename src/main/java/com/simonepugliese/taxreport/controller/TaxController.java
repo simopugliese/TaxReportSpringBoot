@@ -9,6 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.core.io.Resource;
 
 import java.io.IOException;
 import java.util.List;
@@ -26,6 +27,7 @@ public class TaxController {
     private final PersonaRepository personaRepository;
     private final CategoriaSpesaRepository categoriaSpesaRepository;
     private final TipoDocumentoRepository tipoDocumentoRepository;
+    private final DocumentoRepository documentoRepository;
 
     // --- SETUP INIZIALE ---
 
@@ -83,5 +85,28 @@ public class TaxController {
         } catch (Exception e) {
             return ResponseEntity.internalServerError().build();
         }
+    }
+
+    @GetMapping("/documenti/{id}/download")
+    public ResponseEntity<Resource> downloadDocumento(@PathVariable UUID id) {
+        Documento doc = documentoRepository.findById(id).orElseThrow();
+        Resource file = gestioneDatiService.recuperaFileFisico(id);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + doc.getNomeFileOriginale() + "\"")
+                .body(file);
+    }
+
+    // 2. ELIMINA SPESA
+    @DeleteMapping("/spese/{id}")
+    public ResponseEntity<Void> eliminaSpesa(@PathVariable UUID id) {
+        gestioneDatiService.eliminaSpesa(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    // 3. AGGIORNA SPESA
+    @PutMapping("/spese/{id}")
+    public Spesa aggiornaSpesa(@PathVariable UUID id, @RequestBody Spesa spesa) {
+        return gestioneDatiService.aggiornaSpesa(id, spesa);
     }
 }
