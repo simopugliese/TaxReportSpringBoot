@@ -6,7 +6,7 @@ WORKDIR /app
 
 # Copia il file jar compilato dentro il container
 # NOTA: Il nome del file deve corrispondere a quello nel target di Maven
-COPY target/taxreport-backend-0.0.1-SNAPSHOT.jar app.jar
+COPY taxreport-backend-0.0.1-SNAPSHOT.jar app.jar
 
 # Espone la porta
 EXPOSE 8080
